@@ -33,6 +33,10 @@ All data stored in localStorage with keys:
 - `ct_periods` — array of period logs (id, startDate, endDate)
 - `ct_logs` — object keyed by date string (symptoms, mood, water, sleep, notes)
 
+## GitHub
+- Repo: https://github.com/a23nju/cycle-tracker
+- To push updates: `git add . && git commit -m "your message" && git push`
+
 ## Next Steps (pending)
 - Add Supabase backend for proper data persistence across devices
 - Add user login/accounts
