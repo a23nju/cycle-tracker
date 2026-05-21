@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>🌸 My Cycle Tracker</title>
+  <style>
+    :root {
+      --pink: #E91E8C;
+      --pink-light: #FCE4EC;
+      --pink-dark: #C2185B;
+      --purple: #9C27B0;
+      --purple-light: #F3E5F5;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #FFF0F6; min-height: 100vh; max-width: 480px; margin: 0 auto; padding-bottom: 80px; }
+
+    /* PIN LOCK */
+    #pinScreen {
+      position: fixed; inset: 0; background: linear-gradient(135deg, #E91E8C, #9C27B0);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 1000; padding: 30px;
+    }
+    .pin-logo { font-size: 50px; margin-bottom: 10px; }
+    .pin-title { color: white; font-size: 1.5rem; font-weight: 700; margin-bottom: 6px; }
+    .pin-sub { color: rgba(255,255,255,0.8); font-size: 0.88rem; margin-bottom: 30px; }
+    .pin-dots { display: flex; gap: 16px; margin-bottom: 30px; }
+    .pin-dot { width: 16px; height: 16px; border-radius: 50%; border: 2px solid white; background: transparent; transition: background 0.2s; }
+    .pin-dot.filled { background: white; }
+    .pin-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: 260px; }
+    .pin-btn {
+      background: rgba(255,255,255,0.2); border: none; color: white;
+      font-size: 1.4rem; font-weight: 700; border-radius: 50%;
+      width: 70px; height: 70px; cursor: pointer; font-family: inherit;
+      transition: background 0.15s;
+    }
+    .pin-btn:active { background: rgba(255,255,255,0.4); }
+    .pin-btn.del { font-size: 1rem; }
+    .pin-btn.empty { background: transparent; cursor: default; }
+    .pin-error { color: rgba(255,100,100,0.9); font-size: 0.82rem; margin-top: 12px; min-height: 20px; }
+
+    /* HEADER */
+    .app-header { background: linear-gradient(135deg, #E91E8C, #C2185B); padding: 20px 20px 24px; color: white; }
+    .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .header-name-wrap .header-greeting { font-size: 0.82rem; opacity: 0.85; }
+    .header-name-wrap .header-name { font-size: 1.3rem; font-weight: 700; }
+    .header-actions { display: flex; gap: 8px; }
+    .header-btn {
+      background: rgba(255,255,255,0.2); border: none; color: white;
+      padding: 8px 12px; border-radius: 20px; font-size: 0.78rem; cursor: pointer; font-family: inherit;
+    }
+    .cycle-settings { background: rgba(255,255,255,0.15); border-radius: 14px; padding: 12px 16px; display: flex; gap: 24px; }
+    .cs-item .cs-label { font-size: 0.72rem; opacity: 0.8; margin-bottom: 4px; }
+    .cs-item .cs-val { font-size: 0.95rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .cs-adjust { background: rgba(255,255,255,0.25); border: none; color: white; width: 26px; height: 26px; border-radius: 50%; cursor: pointer; font-size: 1rem; font-family: inherit; }
+
+    /* BOTTOM NAV */
+    .bottom-nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; background: white; display: flex; box-shadow: 0 -2px 20px rgba(0,0,0,0.08); z-index: 100; }
+    .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 10px 0 8px; border: none; background: transparent; cursor: pointer; color: #bbb; font-size: 0.62rem; font-family: inherit; transition: color 0.2s; }
+    .nav-item.active { color: var(--pink); }
+    .nav-item .nav-icon { font-size: 1.3rem; margin-bottom: 2px; }
+
+    /* PAGES */
+    .page { padding: 20px; display: none; }
+    .page.active { display: block; }
+
+    /* CARDS */
+    .card { background: white; border-radius: 20px; padding: 20px; margin-bottom: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+    .card-title { font-size: 0.78rem; font-weight: 700; color: #bbb; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 14px; }
+
+    /* DASHBOARD */
+    .cycle-hero { background: linear-gradient(135deg, #E91E8C, #9C27B0); border-radius: 20px; padding: 24px; color: white; margin-bottom: 14px; text-align: center; }
+    .cycle-hero .phase { font-size: 0.82rem; opacity: 0.85; margin-bottom: 4px; }
+    .cycle-hero .phase-name { font-size: 1.5rem; font-weight: 700; margin-bottom: 6px; }
+    .cycle-hero .phase-desc { font-size: 0.82rem; opacity: 0.85; }
+    .next-period-card { background: var(--pink-light); border-radius: 20px; padding: 18px 20px; margin-bottom: 14px; display: flex; align-items: center; gap: 16px; }
+    .np-icon { font-size: 2.4rem; }
+    .np-label { font-size: 0.78rem; color: #AD1457; margin-bottom: 2px; }
+    .np-date { font-size: 1.15rem; font-weight: 700; color: var(--pink-dark); }
+    .np-days { font-size: 0.82rem; color: #888; margin-top: 2px; }
+    .stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+    .stat-card { background: white; border-radius: 16px; padding: 16px; text-align: center; box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+    .s-label { font-size: 0.75rem; color: #aaa; margin-bottom: 4px; }
+    .s-value { font-size: 1.15rem; font-weight: 700; color: var(--pink-dark); }
+
+    /* FORMS */
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-size: 0.82rem; color: #666; margin-bottom: 5px; font-weight: 500; }
+    .form-input { width: 100%; padding: 12px 14px; border: 2px solid #F8BBD0; border-radius: 12px; font-size: 0.95rem; color: #333; outline: none; transition: border 0.2s; background: white; font-family: inherit; }
+    .form-input:focus { border-color: var(--pink); }
+    .btn-primary { width: 100%; padding: 14px; background: linear-gradient(135deg, #E91E8C, #C2185B); color: white; font-size: 1rem; font-weight: 700; border: none; border-radius: 14px; cursor: pointer; margin-top: 8px; transition: opacity 0.2s; font-family: inherit; }
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-secondary { width: 100%; padding: 12px; background: white; color: var(--pink); font-size: 0.95rem; font-weight: 600; border: 2px solid var(--pink); border-radius: 14px; cursor: pointer; margin-top: 8px; font-family: inherit; }
+
+    /* CHIPS */
+    .chip-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip { padding: 8px 14px; border-radius: 20px; border: 2px solid #F8BBD0; background: white; color: #AD1457; font-size: 0.82rem; cursor: pointer; transition: all 0.2s; user-select: none; }
+    .chip.on { background: var(--pink); color: white; border-color: var(--pink); }
+
+    /* FLOW */
+    .flow-row { display: flex; gap: 8px; }
+    .flow-btn { flex: 1; padding: 10px 6px; border-radius: 14px; border: 2px solid #eee; background: white; text-align: center; cursor: pointer; font-size: 0.72rem; color: #555; font-family: inherit; user-select: none; transition: all 0.2s; }
+    .flow-btn .flow-icon { font-size: 1.2rem; display: block; margin-bottom: 3px; }
+    .flow-btn.on { border-color: var(--pink); background: var(--pink-light); color: var(--pink-dark); font-weight: 600; }
+
+    /* MOOD */
+    .mood-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .mood-btn { flex: 1; min-width: 58px; padding: 10px 6px; border-radius: 14px; border: 2px solid #eee; background: white; text-align: center; cursor: pointer; transition: all 0.2s; font-size: 0.72rem; color: #555; font-family: inherit; user-select: none; }
+    .mood-btn .mood-emoji { font-size: 1.4rem; display: block; margin-bottom: 3px; }
+    .mood-btn.on { border-color: var(--pink); background: var(--pink-light); color: var(--pink-dark); font-weight: 600; }
+
+    /* SLIDER */
+    .slider-row { display: flex; align-items: center; gap: 12px; }
+    .range-slider { flex: 1; -webkit-appearance: none; height: 6px; border-radius: 3px; background: #F8BBD0; outline: none; }
+    .range-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; background: var(--pink); cursor: pointer; }
+    .slider-val { font-size: 1.2rem; font-weight: 700; color: var(--pink-dark); min-width: 28px; text-align: center; }
+
+    /* COUNTER */
+    .counter-row { display: flex; align-items: center; gap: 14px; }
+    .counter-btn { width: 38px; height: 38px; border-radius: 50%; border: 2px solid var(--pink); background: white; color: var(--pink); font-size: 1.2rem; cursor: pointer; font-family: inherit; font-weight: bold; }
+    .counter-val { font-size: 1.5rem; font-weight: 700; color: var(--pink-dark); min-width: 32px; text-align: center; }
+    .wellness-label { font-size: 0.85rem; color: #555; font-weight: 600; display: block; margin-bottom: 8px; }
+    .wellness-section { margin-bottom: 18px; }
+    .wellness-section:last-child { margin-bottom: 0; }
+
+    /* NOTES */
+    .notes-input { width: 100%; height: 80px; padding: 12px; border: 2px solid #F8BBD0; border-radius: 12px; font-size: 0.9rem; resize: none; outline: none; font-family: inherit; color: #333; }
+    .notes-input:focus { border-color: var(--pink); }
+
+    /* CALENDAR */
+    .cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .cal-month { font-size: 1.05rem; font-weight: 700; color: #333; }
+    .cal-nav-btn { background: var(--pink-light); border: none; color: var(--pink); width: 36px; height: 36px; border-radius: 50%; font-size: 1.1rem; cursor: pointer; font-family: inherit; }
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .cal-day-name { text-align: center; font-size: 0.68rem; font-weight: 700; color: #ccc; padding: 0 0 8px; }
+    .cal-day { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 0.8rem; color: #444; cursor: pointer; position: relative; }
+    .cal-day.period { background: #E91E8C; color: white; font-weight: 700; }
+    .cal-day.ovulation { background: #9C27B0; color: white; font-weight: 700; }
+    .cal-day.fertile { background: #CE93D8; color: white; }
+    .cal-day.today { outline: 2.5px solid var(--pink); font-weight: 700; }
+    .cal-day.has-log::after { content: ''; position: absolute; bottom: 2px; width: 4px; height: 4px; border-radius: 50%; background: #4CAF50; }
+    .cal-day.period.has-log::after { background: white; }
+    .cal-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+    .legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: #555; }
+    .legend-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+
+    /* INSIGHTS */
+    .insight-card { background: white; border-radius: 20px; padding: 20px; margin-bottom: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+    .insight-card h3 { font-size: 0.9rem; font-weight: 700; color: #333; margin-bottom: 14px; }
+    .insight-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f5f5f5; }
+    .insight-row:last-child { border-bottom: none; }
+    .insight-label { font-size: 0.85rem; color: #666; }
+    .insight-val { font-size: 0.95rem; font-weight: 700; color: var(--pink-dark); }
+    .bar-row { margin-bottom: 10px; }
+    .bar-label { display: flex; justify-content: space-between; font-size: 0.8rem; color: #666; margin-bottom: 4px; }
+    .bar-track { background: #f5f5f5; border-radius: 10px; height: 10px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 10px; background: linear-gradient(135deg, #E91E8C, #9C27B0); transition: width 0.5s; }
+
+    /* HISTORY */
+    .period-log-item { background: white; border-radius: 16px; padding: 16px; margin-bottom: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.06); display: flex; justify-content: space-between; align-items: center; }
+    .pli-date { font-size: 1rem; font-weight: 700; color: #333; }
+    .pli-info { font-size: 0.8rem; color: #888; margin-top: 3px; }
+    .pli-delete { background: #FFE4EC; border: none; color: var(--pink); width: 34px; height: 34px; border-radius: 50%; font-size: 1rem; cursor: pointer; font-family: inherit; flex-shrink: 0; }
+
+    /* PROFILE */
+    .profile-avatar { width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, #E91E8C, #9C27B0); display: flex; align-items: center; justify-content: center; font-size: 2rem; margin: 0 auto 12px; }
+    .profile-name { text-align: center; font-size: 1.2rem; font-weight: 700; color: #333; margin-bottom: 4px; }
+    .profile-email { text-align: center; font-size: 0.82rem; color: #888; margin-bottom: 20px; }
+    .setting-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid #f5f5f5; cursor: pointer; }
+    .setting-row:last-child { border-bottom: none; }
+    .setting-label { font-size: 0.9rem; color: #333; display: flex; align-items: center; gap: 10px; }
+    .setting-icon { font-size: 1.2rem; }
+    .setting-arrow { color: #ccc; font-size: 1rem; }
+    .toggle-switch { position: relative; width: 46px; height: 26px; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider { position: absolute; inset: 0; background: #ddd; border-radius: 26px; transition: 0.3s; cursor: pointer; }
+    .toggle-slider:before { content: ''; position: absolute; width: 20px; height: 20px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.3s; }
+    input:checked + .toggle-slider { background: var(--pink); }
+    input:checked + .toggle-slider:before { transform: translateX(20px); }
+
+    /* MISC */
+    .empty-state { text-align: center; padding: 50px 20px; color: #ccc; }
+    .empty-state .e-icon { font-size: 3rem; margin-bottom: 12px; }
+    .empty-state p { font-size: 0.9rem; line-height: 1.6; }
+    .section-gap { margin-bottom: 16px; }
+    .toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 24px; font-size: 0.88rem; z-index: 999; opacity: 0; transition: opacity 0.3s; white-space: nowrap; pointer-events: none; }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+<!-- PIN LOCK SCREEN -->
+<div id="pinScreen" style="display:none">
+  <div class="pin-logo">🔒</div>
+  <div class="pin-title">My Cycle Tracker</div>
+  <div class="pin-sub">Enter your PIN to continue</div>
+  <div class="pin-dots" id="pinDots">
+    <div class="pin-dot"></div>
+    <div class="pin-dot"></div>
+    <div class="pin-dot"></div>
+    <div class="pin-dot"></div>
+  </div>
+  <div class="pin-pad">
+    <button class="pin-btn" onclick="pinPress(1)">1</button>
+    <button class="pin-btn" onclick="pinPress(2)">2</button>
+    <button class="pin-btn" onclick="pinPress(3)">3</button>
+    <button class="pin-btn" onclick="pinPress(4)">4</button>
+    <button class="pin-btn" onclick="pinPress(5)">5</button>
+    <button class="pin-btn" onclick="pinPress(6)">6</button>
+    <button class="pin-btn" onclick="pinPress(7)">7</button>
+    <button class="pin-btn" onclick="pinPress(8)">8</button>
+    <button class="pin-btn" onclick="pinPress(9)">9</button>
+    <button class="pin-btn empty"></button>
+    <button class="pin-btn" onclick="pinPress(0)">0</button>
+    <button class="pin-btn del" onclick="pinDelete()">⌫</button>
+  </div>
+  <div class="pin-error" id="pinError"></div>
+</div>
+
+<!-- MAIN APP -->
+<div id="mainApp">
+
+  <!-- Header -->
+  <div class="app-header">
+    <div class="header-top">
+      <div class="header-name-wrap">
+        <div class="header-greeting">Hello,</div>
+        <div class="header-name" id="headerName">there 🌸</div>
+      </div>
+      <div class="header-actions">
+        <button class="header-btn" onclick="showPage('profile')">👤 Profile</button>
+      </div>
+    </div>
+    <div class="cycle-settings">
+      <div class="cs-item">
+        <div class="cs-label">Cycle length</div>
+        <div class="cs-val">
+          <button class="cs-adjust" onclick="adjustSetting('cycle',-1)">−</button>
+          <span id="cycleLenDisplay">28</span> days
+          <button class="cs-adjust" onclick="adjustSetting('cycle',1)">+</button>
+        </div>
+      </div>
+      <div class="cs-item">
+        <div class="cs-label">Period length</div>
+        <div class="cs-val">
+          <button class="cs-adjust" onclick="adjustSetting('period',-1)">−</button>
+          <span id="periodLenDisplay">5</span> days
+          <button class="cs-adjust" onclick="adjustSetting('period',1)">+</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="page active" id="dashboardPage">
+    <div id="dashboardContent">
+      <div class="empty-state"><div class="e-icon">🌸</div><p>Welcome! Tap <strong>Log</strong> below<br>to add your first period.</p></div>
+    </div>
+  </div>
+
+  <!-- LOG PAGE -->
+  <div class="page" id="logPage">
+
+    <div class="card">
+      <div class="card-title">Log Period</div>
+      <div class="form-group">
+        <label>Period start date</label>
+        <input class="form-input" type="date" id="periodStart" />
+      </div>
+      <div class="form-group">
+        <label>Period end date (optional)</label>
+        <input class="form-input" type="date" id="periodEnd" />
+      </div>
+      <div class="form-group">
+        <label>Flow intensity</label>
+        <div class="flow-row">
+          <div class="flow-btn" onclick="selectFlow(this,'Spotting')"><span class="flow-icon">🩸</span>Spotting</div>
+          <div class="flow-btn" onclick="selectFlow(this,'Light')"><span class="flow-icon">🩸🩸</span>Light</div>
+          <div class="flow-btn" onclick="selectFlow(this,'Medium')"><span class="flow-icon">🩸🩸🩸</span>Medium</div>
+          <div class="flow-btn" onclick="selectFlow(this,'Heavy')"><span class="flow-icon">🩸🩸🩸🩸</span>Heavy</div>
+        </div>
+      </div>
+      <button class="btn-primary" onclick="logPeriod()">Save Period</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Today's Symptoms</div>
+      <div class="chip-grid">
+        <div class="chip" onclick="toggleChip(this)">😣 Cramps</div>
+        <div class="chip" onclick="toggleChip(this)">😔 Mood swings</div>
+        <div class="chip" onclick="toggleChip(this)">😩 Fatigue</div>
+        <div class="chip" onclick="toggleChip(this)">🤕 Headache</div>
+        <div class="chip" onclick="toggleChip(this)">🤢 Nausea</div>
+        <div class="chip" onclick="toggleChip(this)">🎈 Bloating</div>
+        <div class="chip" onclick="toggleChip(this)">🌡️ Hot flashes</div>
+        <div class="chip" onclick="toggleChip(this)">💤 Insomnia</div>
+        <div class="chip" onclick="toggleChip(this)">😊 Feeling good</div>
+        <div class="chip" onclick="toggleChip(this)">💪 Energetic</div>
+        <div class="chip" onclick="toggleChip(this)">🦴 Back pain</div>
+        <div class="chip" onclick="toggleChip(this)">😰 Anxiety</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Skin & Cravings</div>
+      <div style="margin-bottom:14px">
+        <span class="wellness-label">🌟 Skin condition</span>
+        <div class="chip-grid">
+          <div class="chip" onclick="toggleChip(this)">✨ Clear</div>
+          <div class="chip" onclick="toggleChip(this)">🔴 Breakouts</div>
+          <div class="chip" onclick="toggleChip(this)">💧 Oily</div>
+          <div class="chip" onclick="toggleChip(this)">🏜️ Dry</div>
+          <div class="chip" onclick="toggleChip(this)">😌 Sensitive</div>
+        </div>
+      </div>
+      <div>
+        <span class="wellness-label">🍫 Cravings</span>
+        <div class="chip-grid">
+          <div class="chip" onclick="toggleChip(this)">🍫 Chocolate</div>
+          <div class="chip" onclick="toggleChip(this)">🍕 Salty food</div>
+          <div class="chip" onclick="toggleChip(this)">🍬 Sweet</div>
+          <div class="chip" onclick="toggleChip(this)">🥩 Meat</div>
+          <div class="chip" onclick="toggleChip(this)">🍟 Junk food</div>
+          <div class="chip" onclick="toggleChip(this)">🥗 Healthy</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Mood</div>
+      <div class="mood-row">
+        <div class="mood-btn" onclick="selectMood(this,'Happy')"><span class="mood-emoji">😄</span>Happy</div>
+        <div class="mood-btn" onclick="selectMood(this,'Calm')"><span class="mood-emoji">😌</span>Calm</div>
+        <div class="mood-btn" onclick="selectMood(this,'Sad')"><span class="mood-emoji">😢</span>Sad</div>
+        <div class="mood-btn" onclick="selectMood(this,'Anxious')"><span class="mood-emoji">😰</span>Anxious</div>
+        <div class="mood-btn" onclick="selectMood(this,'Irritable')"><span class="mood-emoji">😤</span>Irritable</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Pain & Stress Levels</div>
+      <div class="wellness-section">
+        <span class="wellness-label">😣 Pain level</span>
+        <div class="slider-row">
+          <span style="font-size:0.8rem;color:#aaa">0</span>
+          <input type="range" class="range-slider" id="painSlider" min="0" max="10" value="0" oninput="document.getElementById('painVal').textContent=this.value" />
+          <span class="slider-val" id="painVal">0</span>
+          <span style="font-size:0.8rem;color:#aaa">10</span>
+        </div>
+      </div>
+      <div class="wellness-section">
+        <span class="wellness-label">😤 Stress level</span>
+        <div class="slider-row">
+          <span style="font-size:0.8rem;color:#aaa">0</span>
+          <input type="range" class="range-slider" id="stressSlider" min="0" max="10" value="0" oninput="document.getElementById('stressVal').textContent=this.value" />
+          <span class="slider-val" id="stressVal">0</span>
+          <span style="font-size:0.8rem;color:#aaa">10</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Wellness</div>
+      <div class="wellness-section">
+        <span class="wellness-label">💧 Water (glasses)</span>
+        <div class="counter-row">
+          <button class="counter-btn" onclick="adjustCounter('water',-1)">−</button>
+          <span class="counter-val" id="waterVal">0</span>
+          <button class="counter-btn" onclick="adjustCounter('water',1)">+</button>
+        </div>
+      </div>
+      <div class="wellness-section">
+        <span class="wellness-label">😴 Sleep (hours)</span>
+        <div class="counter-row">
+          <button class="counter-btn" onclick="adjustCounter('sleep',-1)">−</button>
+          <span class="counter-val" id="sleepVal">0</span>
+          <button class="counter-btn" onclick="adjustCounter('sleep',1)">+</button>
+        </div>
+      </div>
+      <div class="wellness-section">
+        <span class="wellness-label">🏃 Exercise (minutes)</span>
+        <div class="counter-row">
+          <button class="counter-btn" onclick="adjustCounter('exercise',-10)">−</button>
+          <span class="counter-val" id="exerciseVal">0</span>
+          <button class="counter-btn" onclick="adjustCounter('exercise',10)">+</button>
+        </div>
+      </div>
+      <div>
+        <span class="wellness-label">🌡️ Body temperature (°C)</span>
+        <div class="counter-row">
+          <button class="counter-btn" onclick="adjustTemp(-0.1)">−</button>
+          <span class="counter-val" id="tempVal" style="font-size:1.1rem;min-width:52px">36.5</span>
+          <button class="counter-btn" onclick="adjustTemp(0.1)">+</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Notes / Diary</div>
+      <textarea class="notes-input" id="notesInput" placeholder="How are you feeling today? Write anything..."></textarea>
+    </div>
+
+    <button class="btn-primary" onclick="saveLog()" style="margin-bottom:16px">Save Today's Log</button>
+  </div>
+
+  <!-- CALENDAR PAGE -->
+  <div class="page" id="calendarPage">
+    <div class="card">
+      <div class="cal-nav">
+        <button class="cal-nav-btn" onclick="changeMonth(-1)">‹</button>
+        <div class="cal-month" id="calMonthLabel"></div>
+        <button class="cal-nav-btn" onclick="changeMonth(1)">›</button>
+      </div>
+      <div class="cal-grid" id="calDayNames"></div>
+      <div class="cal-grid" id="calGrid"></div>
+      <div class="cal-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#E91E8C"></div>Period</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#9C27B0"></div>Ovulation</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#CE93D8"></div>Fertile</div>
+        <div class="legend-item"><div class="legend-dot" style="background:white;border:2px solid #E91E8C"></div>Today</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#4CAF50"></div>Logged</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- INSIGHTS PAGE -->
+  <div class="page" id="insightsPage">
+    <div id="insightsContent">
+      <div class="empty-state"><div class="e-icon">📊</div><p>Log at least 2 periods<br>to see your insights!</p></div>
+    </div>
+  </div>
+
+  <!-- HISTORY PAGE -->
+  <div class="page" id="historyPage">
+    <div id="historyContent"></div>
+  </div>
+
+  <!-- PROFILE PAGE -->
+  <div class="page" id="profilePage">
+    <div class="card">
+      <div class="profile-avatar">🌸</div>
+      <div class="profile-name" id="profileName">My Cycle Tracker</div>
+      <div class="profile-email" id="profileEmail">Your personal health companion</div>
+
+      <div class="form-group">
+        <label>Your name</label>
+        <input class="form-input" type="text" id="profileNameInput" placeholder="Enter your name" />
+      </div>
+      <button class="btn-primary" onclick="saveName()">Save Name</button>
+    </div>
+
+    <div class="card">
+      <div style="font-size:0.85rem;font-weight:700;color:#333;margin-bottom:14px">Privacy & Security</div>
+
+      <div class="setting-row" onclick="togglePinSetting()">
+        <span class="setting-label"><span class="setting-icon">🔒</span> PIN Lock</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="pinToggle" onchange="togglePinSetting()" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div id="pinSetupSection" style="display:none;margin-top:12px">
+        <div class="form-group">
+          <label>Set a 4-digit PIN</label>
+          <input class="form-input" type="number" id="newPinInput" placeholder="e.g. 1234" maxlength="4" />
+        </div>
+        <button class="btn-primary" onclick="savePin()">Save PIN</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="font-size:0.85rem;font-weight:700;color:#333;margin-bottom:14px">Data</div>
+      <div class="setting-row" onclick="exportData()">
+        <span class="setting-label"><span class="setting-icon">📤</span> Export my data (CSV)</span>
+        <span class="setting-arrow">›</span>
+      </div>
+      <div class="setting-row" onclick="clearAllData()">
+        <span class="setting-label" style="color:#e53935"><span class="setting-icon">🗑️</span> Clear all data</span>
+        <span class="setting-arrow">›</span>
+      </div>
+    </div>
+
+    <div style="text-align:center;color:#ccc;font-size:0.78rem;padding:10px 0 20px">
+      🌸 My Cycle Tracker v2.0
+    </div>
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" onclick="showPage('dashboard')"><span class="nav-icon">🏠</span>Home</button>
+    <button class="nav-item" onclick="showPage('log')"><span class="nav-icon">📝</span>Log</button>
+    <button class="nav-item" onclick="showPage('calendar')"><span class="nav-icon">📅</span>Calendar</button>
+    <button class="nav-item" onclick="showPage('insights')"><span class="nav-icon">📊</span>Insights</button>
+    <button class="nav-item" onclick="showPage('history')"><span class="nav-icon">📋</span>History</button>
+  </nav>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ---- STATE ----
+  let userSettings = JSON.parse(localStorage.getItem('ct_settings') || '{"cycleLength":28,"periodLength":5}');
+  let periods = JSON.parse(localStorage.getItem('ct_periods') || '[]').map(p => ({
+    ...p, startDate: new Date(p.startDate), endDate: p.endDate ? new Date(p.endDate) : null
+  }));
+  let calendarMonth = new Date();
+  let waterCount = 0, sleepCount = 0, exerciseCount = 0, tempVal = 36.5;
+  let selectedMood = '', selectedFlow = '';
+
+  // Apply settings display
+  document.getElementById('cycleLenDisplay').textContent = userSettings.cycleLength;
+  document.getElementById('periodLenDisplay').textContent = userSettings.periodLength;
+
+  // Load profile name
+  const savedName = localStorage.getItem('ct_name');
+  if (savedName) {
+    document.getElementById('headerName').textContent = savedName + ' 🌸';
+    document.getElementById('profileName').textContent = savedName;
+    document.getElementById('profileNameInput').value = savedName;
+  }
+
+  // ---- PIN LOCK ----
+  let pinEntry = '';
+  const storedPin = localStorage.getItem('ct_pin');
+  const pinEnabled = localStorage.getItem('ct_pin_enabled') === 'true';
+
+  if (pinEnabled && storedPin) {
+    document.getElementById('pinScreen').style.display = 'flex';
+    document.getElementById('mainApp').style.display = 'none';
+  } else {
+    document.getElementById('pinScreen').style.display = 'none';
+    document.getElementById('mainApp').style.display = 'block';
+  }
+
+  // Update PIN toggle
+  if (pinEnabled) document.getElementById('pinToggle').checked = true;
+
+  window.pinPress = function(n) {
+    if (pinEntry.length >= 4) return;
+    pinEntry += n;
+    updatePinDots();
+    if (pinEntry.length === 4) {
+      setTimeout(() => {
+        if (pinEntry === storedPin) {
+          document.getElementById('pinScreen').style.display = 'none';
+          document.getElementById('mainApp').style.display = 'block';
+        } else {
+          document.getElementById('pinError').textContent = 'Incorrect PIN. Try again.';
+          pinEntry = '';
+          updatePinDots();
+        }
+      }, 200);
+    }
+  };
+
+  window.pinDelete = function() {
+    pinEntry = pinEntry.slice(0, -1);
+    updatePinDots();
+    document.getElementById('pinError').textContent = '';
+  };
+
+  function updatePinDots() {
+    document.querySelectorAll('.pin-dot').forEach((dot, i) => {
+      dot.classList.toggle('filled', i < pinEntry.length);
+    });
+  }
+
+  window.togglePinSetting = function() {
+    const checked = document.getElementById('pinToggle').checked;
+    document.getElementById('pinSetupSection').style.display = checked ? 'block' : 'none';
+    if (!checked) {
+      localStorage.removeItem('ct_pin');
+      localStorage.setItem('ct_pin_enabled', 'false');
+      showToast('PIN lock disabled');
+    }
+  };
+
+  window.savePin = function() {
+    const pin = document.getElementById('newPinInput').value.trim();
+    if (pin.length !== 4 || isNaN(pin)) { showToast('Please enter a 4-digit PIN'); return; }
+    localStorage.setItem('ct_pin', pin);
+    localStorage.setItem('ct_pin_enabled', 'true');
+    showToast('PIN saved!');
+    document.getElementById('pinSetupSection').style.display = 'none';
+  };
+
+  // ---- HELPERS ----
+  function fmt(d) { return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
+  function fmtShort(d) { return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
+  function addDays(d, n) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
+  function diffDays(a, b) { return Math.round((b - a) / 86400000); }
+  function sameDay(a, b) { return a.toDateString() === b.toDateString(); }
+  function today() { const d = new Date(); d.setHours(0,0,0,0); return d; }
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+  }
+  function savePeriodsToStorage() {
+    localStorage.setItem('ct_periods', JSON.stringify(periods.map(p => ({
+      ...p, startDate: p.startDate.toISOString(), endDate: p.endDate ? p.endDate.toISOString() : null
+    }))));
+  }
+
+  // ---- SETTINGS ----
+  window.adjustSetting = function(type, delta) {
+    if (type === 'cycle') {
+      userSettings.cycleLength = Math.max(20, Math.min(45, userSettings.cycleLength + delta));
+      document.getElementById('cycleLenDisplay').textContent = userSettings.cycleLength;
+    } else {
+      userSettings.periodLength = Math.max(2, Math.min(10, userSettings.periodLength + delta));
+      document.getElementById('periodLenDisplay').textContent = userSettings.periodLength;
+    }
+    localStorage.setItem('ct_settings', JSON.stringify(userSettings));
+    renderDashboard(); renderCalendar();
+  };
+
+  // ---- LOG INTERACTIONS ----
+  window.selectFlow = function(el, flow) {
+    document.querySelectorAll('.flow-btn').forEach(b => b.classList.remove('on'));
+    el.classList.add('on'); selectedFlow = flow;
+  };
+  window.toggleChip = function(el) { el.classList.toggle('on'); };
+  window.selectMood = function(el, mood) {
+    document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('on'));
+    el.classList.add('on'); selectedMood = mood;
+  };
+  window.adjustCounter = function(type, delta) {
+    if (type === 'water') { waterCount = Math.max(0, Math.min(20, waterCount + delta)); document.getElementById('waterVal').textContent = waterCount; }
+    else if (type === 'sleep') { sleepCount = Math.max(0, Math.min(24, sleepCount + delta)); document.getElementById('sleepVal').textContent = sleepCount; }
+    else if (type === 'exercise') { exerciseCount = Math.max(0, Math.min(300, exerciseCount + delta)); document.getElementById('exerciseVal').textContent = exerciseCount; }
+  };
+  window.adjustTemp = function(delta) {
+    tempVal = Math.round((Math.max(35, Math.min(42, tempVal + delta))) * 10) / 10;
+    document.getElementById('tempVal').textContent = tempVal.toFixed(1);
+  };
+
+  // ---- PERIOD LOG ----
+  window.logPeriod = function() {
+    const startVal = document.getElementById('periodStart').value;
+    const endVal = document.getElementById('periodEnd').value;
+    if (!startVal) { showToast('Please select a start date'); return; }
+    const startDate = new Date(startVal + 'T00:00:00');
+    const endDate = endVal ? new Date(endVal + 'T00:00:00') : null;
+    periods.unshift({ id: Date.now().toString(), startDate, endDate, flow: selectedFlow });
+    savePeriodsToStorage();
+    document.getElementById('periodStart').value = '';
+    document.getElementById('periodEnd').value = '';
+    document.querySelectorAll('.flow-btn').forEach(b => b.classList.remove('on'));
+    selectedFlow = '';
+    showToast('Period saved!');
+    renderDashboard(); renderCalendar();
+    if (document.getElementById('historyPage').classList.contains('active')) renderHistory();
+  };
+
+  window.deletePeriod = function(id) {
+    if (!confirm('Delete this period log?')) return;
+    periods = periods.filter(p => p.id !== id);
+    savePeriodsToStorage();
+    showToast('Deleted');
+    renderDashboard(); renderCalendar(); renderHistory();
+    if (document.getElementById('insightsPage').classList.contains('active')) renderInsights();
+  };
+
+  // ---- SAVE LOG ----
+  window.saveLog = function() {
+    const symptoms = [...document.querySelectorAll('.chip.on')].map(c => c.textContent.trim());
+    const notes = document.getElementById('notesInput').value.trim();
+    const dateStr = today().toISOString().split('T')[0];
+    const logs = JSON.parse(localStorage.getItem('ct_logs') || '{}');
+    logs[dateStr] = {
+      date: dateStr, symptoms, mood: selectedMood,
+      water: waterCount, sleep: sleepCount, exercise: exerciseCount,
+      temp: tempVal, pain: parseInt(document.getElementById('painSlider').value),
+      stress: parseInt(document.getElementById('stressSlider').value), notes
+    };
+    localStorage.setItem('ct_logs', JSON.stringify(logs));
+    showToast("Today's log saved!");
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('on'));
+    document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('on'));
+    waterCount = 0; sleepCount = 0; exerciseCount = 0; tempVal = 36.5; selectedMood = '';
+    document.getElementById('waterVal').textContent = '0';
+    document.getElementById('sleepVal').textContent = '0';
+    document.getElementById('exerciseVal').textContent = '0';
+    document.getElementById('tempVal').textContent = '36.5';
+    document.getElementById('painSlider').value = 0;
+    document.getElementById('stressSlider').value = 0;
+    document.getElementById('painVal').textContent = '0';
+    document.getElementById('stressVal').textContent = '0';
+    document.getElementById('notesInput').value = '';
+  };
+
+  // ---- DASHBOARD ----
+  function renderDashboard() {
+    const el = document.getElementById('dashboardContent');
+    if (periods.length === 0) {
+      el.innerHTML = `<div class="empty-state"><div class="e-icon">🌸</div><p>Welcome! Tap <strong>Log</strong> below<br>to add your first period.</p></div>`;
+      return;
+    }
+    const now = today();
+    const last = periods[0];
+    const cycleLen = userSettings.cycleLength, periodLen = userSettings.periodLength;
+    const nextPeriod = addDays(last.startDate, cycleLen);
+    const ovulation = addDays(last.startDate, cycleLen - 14);
+    const fertileStart = addDays(ovulation, -5);
+    const fertileEnd = addDays(ovulation, 1);
+    const cycleDay = diffDays(last.startDate, now) + 1;
+    const daysUntil = diffDays(now, nextPeriod);
+
+    let phase, phaseDesc;
+    if (cycleDay >= 1 && cycleDay <= periodLen) { phase = '🩸 Menstrual Phase'; phaseDesc = 'Your period is here. Rest and take it easy.'; }
+    else if (cycleDay <= 13) { phase = '🌱 Follicular Phase'; phaseDesc = 'Energy is building up. A great time to start things!'; }
+    else if (cycleDay <= 16) { phase = '🌸 Ovulation Phase'; phaseDesc = 'Peak energy and fertility. You may feel your best!'; }
+    else { phase = '🌙 Luteal Phase'; phaseDesc = 'Slowing down. Rest more and practice self-care.'; }
+
+    const countdownText = daysUntil === 0 ? '⚠️ Expected today!'
+      : daysUntil > 0 ? `in ${daysUntil} day${daysUntil === 1 ? '' : 's'}`
+      : 'May have started';
+
+    // Average cycle
+    let avgCycle = '—';
+    if (periods.length >= 2) {
+      let total = 0;
+      for (let i = 0; i < periods.length - 1; i++) total += diffDays(periods[i+1].startDate, periods[i].startDate);
+      avgCycle = Math.round(total / (periods.length - 1)) + ' days';
+    }
+
+    el.innerHTML = `
+      <div class="cycle-hero">
+        <div class="phase">Current Phase</div>
+        <div class="phase-name">${phase}</div>
+        <div class="phase-desc">${phaseDesc}</div>
+      </div>
+      <div class="next-period-card">
+        <div class="np-icon">🗓️</div>
+        <div>
+          <div class="np-label">Next Period Expected</div>
+          <div class="np-date">${fmt(nextPeriod)}</div>
+          <div class="np-days">${countdownText}</div>
+        </div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-card"><div class="s-label">Cycle Day</div><div class="s-value">Day ${cycleDay}</div></div>
+        <div class="stat-card"><div class="s-label">Days Until Period</div><div class="s-value">${daysUntil > 0 ? daysUntil : '—'}</div></div>
+        <div class="stat-card"><div class="s-label">Ovulation</div><div class="s-value">${fmtShort(ovulation)}</div></div>
+        <div class="stat-card"><div class="s-label">Fertile Window</div><div class="s-value" style="font-size:0.88rem">${fmtShort(fertileStart)} – ${fmtShort(fertileEnd)}</div></div>
+        <div class="stat-card"><div class="s-label">Avg Cycle</div><div class="s-value">${avgCycle}</div></div>
+        <div class="stat-card"><div class="s-label">Periods Logged</div><div class="s-value">${periods.length}</div></div>
+      </div>`;
+  }
+
+  // ---- CALENDAR ----
+  function renderCalendar() {
+    const year = calendarMonth.getFullYear(), month = calendarMonth.getMonth();
+    const now = today();
+    document.getElementById('calMonthLabel').textContent = calendarMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+    const periodDaySet = new Set(), fertileDaySet = new Set(), ovulationDaySet = new Set();
+    const logs = JSON.parse(localStorage.getItem('ct_logs') || '{}');
+
+    periods.forEach(p => {
+      const cycleLen = userSettings.cycleLength, periodLen = userSettings.periodLength;
+      for (let i = 0; i < periodLen; i++) periodDaySet.add(addDays(p.startDate, i).toDateString());
+      const nextStart = addDays(p.startDate, cycleLen);
+      for (let i = 0; i < periodLen; i++) periodDaySet.add(addDays(nextStart, i).toDateString());
+      const ov = addDays(p.startDate, cycleLen - 14);
+      ovulationDaySet.add(ov.toDateString());
+      for (let i = -5; i <= 1; i++) { if (i !== 0) fertileDaySet.add(addDays(ov, i).toDateString()); }
+    });
+
+    const namesEl = document.getElementById('calDayNames');
+    namesEl.innerHTML = '';
+    ['S','M','T','W','T','F','S'].forEach(d => { const c = document.createElement('div'); c.className = 'cal-day-name'; c.textContent = d; namesEl.appendChild(c); });
+
+    const grid = document.getElementById('calGrid');
+    grid.innerHTML = '';
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    for (let i = 0; i < firstDay; i++) grid.appendChild(document.createElement('div'));
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(year, month, day);
+      const cell = document.createElement('div');
+      cell.className = 'cal-day'; cell.textContent = day;
+      const ds = date.toDateString();
+      const dateStr = date.toISOString().split('T')[0];
+      if (periodDaySet.has(ds)) cell.classList.add('period');
+      else if (ovulationDaySet.has(ds)) cell.classList.add('ovulation');
+      else if (fertileDaySet.has(ds)) cell.classList.add('fertile');
+      if (sameDay(date, now)) cell.classList.add('today');
+      if (logs[dateStr]) cell.classList.add('has-log');
+      grid.appendChild(cell);
+    }
+  }
+
+  window.changeMonth = function(delta) {
+    calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + delta, 1);
+    renderCalendar();
+  };
+
+  // ---- INSIGHTS ----
+  function renderInsights() {
+    const el = document.getElementById('insightsContent');
+    const logs = JSON.parse(localStorage.getItem('ct_logs') || '{}');
+    const logEntries = Object.values(logs);
+
+    if (periods.length < 2) {
+      el.innerHTML = `<div class="empty-state"><div class="e-icon">📊</div><p>Log at least 2 periods<br>to see your insights!</p></div>`;
+      return;
+    }
+
+    // Avg cycle length
+    let totalCycle = 0;
+    for (let i = 0; i < periods.length - 1; i++) totalCycle += diffDays(periods[i+1].startDate, periods[i].startDate);
+    const avgCycle = Math.round(totalCycle / (periods.length - 1));
+
+    // Avg period length
+    const periodsWithEnd = periods.filter(p => p.endDate);
+    const avgPeriod = periodsWithEnd.length > 0
+      ? Math.round(periodsWithEnd.reduce((s,p) => s + diffDays(p.startDate, p.endDate), 0) / periodsWithEnd.length)
+      : userSettings.periodLength;
+
+    // Symptom count
+    const symptomCount = {};
+    logEntries.forEach(l => { (l.symptoms||[]).forEach(s => { symptomCount[s] = (symptomCount[s]||0) + 1; }); });
+    const topSymptoms = Object.entries(symptomCount).sort((a,b) => b[1]-a[1]).slice(0,5);
+    const maxSymptom = topSymptoms[0]?.[1] || 1;
+
+    // Mood count
+    const moodCount = {};
+    logEntries.forEach(l => { if (l.mood) moodCount[l.mood] = (moodCount[l.mood]||0) + 1; });
+    const topMoods = Object.entries(moodCount).sort((a,b) => b[1]-a[1]);
+
+    // Avg pain & stress
+    const painEntries = logEntries.filter(l => l.pain > 0);
+    const stressEntries = logEntries.filter(l => l.stress > 0);
+    const avgPain = painEntries.length ? (painEntries.reduce((s,l) => s+l.pain, 0) / painEntries.length).toFixed(1) : '—';
+    const avgStress = stressEntries.length ? (stressEntries.reduce((s,l) => s+l.stress, 0) / stressEntries.length).toFixed(1) : '—';
+
+    // Avg water & sleep
+    const waterEntries = logEntries.filter(l => l.water > 0);
+    const sleepEntries = logEntries.filter(l => l.sleep > 0);
+    const avgWater = waterEntries.length ? (waterEntries.reduce((s,l) => s+l.water, 0) / waterEntries.length).toFixed(1) : '—';
+    const avgSleep = sleepEntries.length ? (sleepEntries.reduce((s,l) => s+l.sleep, 0) / sleepEntries.length).toFixed(1) : '—';
+
+    el.innerHTML = `
+      <div class="insight-card">
+        <h3>📅 Cycle Statistics</h3>
+        <div class="insight-row"><span class="insight-label">Average cycle length</span><span class="insight-val">${avgCycle} days</span></div>
+        <div class="insight-row"><span class="insight-label">Average period length</span><span class="insight-val">${avgPeriod} days</span></div>
+        <div class="insight-row"><span class="insight-label">Total periods logged</span><span class="insight-val">${periods.length}</span></div>
+        <div class="insight-row"><span class="insight-label">Days logged</span><span class="insight-val">${logEntries.length}</span></div>
+      </div>
+
+      ${topSymptoms.length > 0 ? `
+      <div class="insight-card">
+        <h3>😣 Most Common Symptoms</h3>
+        ${topSymptoms.map(([s,c]) => `
+          <div class="bar-row">
+            <div class="bar-label"><span>${s}</span><span>${c}x</span></div>
+            <div class="bar-track"><div class="bar-fill" style="width:${Math.round(c/maxSymptom*100)}%"></div></div>
+          </div>`).join('')}
+      </div>` : ''}
+
+      ${topMoods.length > 0 ? `
+      <div class="insight-card">
+        <h3>😊 Mood Patterns</h3>
+        ${topMoods.map(([m,c]) => `
+          <div class="insight-row"><span class="insight-label">${m}</span><span class="insight-val">${c} day${c>1?'s':''}</span></div>`).join('')}
+      </div>` : ''}
+
+      <div class="insight-card">
+        <h3>💊 Health Averages</h3>
+        <div class="insight-row"><span class="insight-label">😣 Avg pain level</span><span class="insight-val">${avgPain}/10</span></div>
+        <div class="insight-row"><span class="insight-label">😤 Avg stress level</span><span class="insight-val">${avgStress}/10</span></div>
+        <div class="insight-row"><span class="insight-label">💧 Avg water intake</span><span class="insight-val">${avgWater} glasses</span></div>
+        <div class="insight-row"><span class="insight-label">😴 Avg sleep</span><span class="insight-val">${avgSleep} hours</span></div>
+      </div>`;
+  }
+
+  // ---- HISTORY ----
+  function renderHistory() {
+    const el = document.getElementById('historyContent');
+    if (periods.length === 0) {
+      el.innerHTML = `<div class="empty-state"><div class="e-icon">📋</div><p>No periods logged yet.</p></div>`;
+      return;
+    }
+    el.innerHTML = periods.map(p => {
+      const dur = p.endDate ? diffDays(p.startDate, p.endDate) + ' days' : 'End not logged';
+      const flow = p.flow ? ` · ${p.flow} flow` : '';
+      return `<div class="period-log-item">
+        <div>
+          <div class="pli-date">🩸 ${fmt(p.startDate)}</div>
+          <div class="pli-info">${dur}${flow}</div>
+        </div>
+        <button class="pli-delete" onclick="deletePeriod('${p.id}')">✕</button>
+      </div>`;
+    }).join('');
+  }
+
+  // ---- PROFILE ----
+  window.saveName = function() {
+    const name = document.getElementById('profileNameInput').value.trim();
+    if (!name) { showToast('Please enter your name'); return; }
+    localStorage.setItem('ct_name', name);
+    document.getElementById('headerName').textContent = name + ' 🌸';
+    document.getElementById('profileName').textContent = name;
+    showToast('Name saved!');
+  };
+
+  // ---- EXPORT ----
+  window.exportData = function() {
+    const logs = JSON.parse(localStorage.getItem('ct_logs') || '{}');
+    let csv = 'Date,Symptoms,Mood,Water,Sleep,Exercise,Pain,Stress,Temperature,Notes\n';
+    Object.values(logs).forEach(l => {
+      csv += `"${l.date}","${(l.symptoms||[]).join('; ')}","${l.mood||''}","${l.water||0}","${l.sleep||0}","${l.exercise||0}","${l.pain||0}","${l.stress||0}","${l.temp||''}","${(l.notes||'').replace(/"/g,'""')}"\n`;
+    });
+    csv += '\nPeriod Start,Period End,Flow\n';
+    periods.forEach(p => {
+      csv += `"${p.startDate.toISOString().split('T')[0]}","${p.endDate ? p.endDate.toISOString().split('T')[0] : ''}","${p.flow||''}"\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'cycle-tracker-data.csv';
+    a.click();
+    showToast('Data exported!');
+  };
+
+  window.clearAllData = function() {
+    if (!confirm('Are you sure you want to delete ALL your data? This cannot be undone.')) return;
+    localStorage.removeItem('ct_periods');
+    localStorage.removeItem('ct_logs');
+    localStorage.removeItem('ct_settings');
+    localStorage.removeItem('ct_name');
+    localStorage.removeItem('ct_pin');
+    localStorage.removeItem('ct_pin_enabled');
+    showToast('All data cleared');
+    location.reload();
+  };
+
+  // ---- NAVIGATION ----
+  const pages = ['dashboard','log','calendar','insights','history','profile'];
+  window.showPage = function(page) {
+    pages.forEach(p => document.getElementById(p + 'Page').classList.toggle('active', p === page));
+    document.querySelectorAll('.nav-item').forEach((btn, i) => {
+      btn.classList.toggle('active', ['dashboard','log','calendar','insights','history'][i] === page);
+    });
+    if (page === 'history') renderHistory();
+    if (page === 'calendar') renderCalendar();
+    if (page === 'insights') renderInsights();
+  };
+
+  // ---- INIT ----
+  renderDashboard();
+  renderCalendar();
+</script>
+</body>
+</html>
